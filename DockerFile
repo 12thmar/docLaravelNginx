@@ -1,29 +1,76 @@
-FROM ubuntu:14.04
+FROM ubuntu:wily
+MAINTAINER seid <seid.adem@gmail.com>
 
-MAINTAINER Seid Adem, seid.adem@gmail.com
+# Install  packages
+ENV DEBIAN_FRONTEND noninteractive
+RUN apt-get update && \
+    apt-get -y install php5 \
+    php5-cgi \
+    php5-cli \
+    php5-common \
+    php5-fpm \
+    php-pear \
+    php5-mysql \
+    php5-curl \
+    php5-dev \
+    php5-gd \
+    php5-mcrypt \
+    php5-xmlrpc \
+    curl \
+    sqlite3 \
+    sendmail && apt-get clean
 
-WORKDIR /tmp
+# Configure
+ADD ./start.sh /start.sh
 
-# Install Nginx
-RUN apt-get update -y && \
-    apt-get install -y nginx
+RUN chmod 755 /start.sh
+RUN php5enmod mcrypt
+RUN php5enmod curl
 
-# Apply Nginx configuration
-ADD config/nginx.conf /opt/etc/nginx.conf
-ADD config/laravel /etc/nginx/sites-available/laravel
-RUN ln -s /etc/nginx/sites-available/laravel /etc/nginx/sites-enabled/laravel && \
-    rm /etc/nginx/sites-enabled/default
+RUN apt-get update && apt-get install --no-install-recommends -y \
+    libgmp10 \
+    libgmp-dev \
+    mysql-client \
+    zlib1g-dev \
+    && ln -s /usr/include/x86_64-linux-gnu/gmp.h /usr/include/gmp.h \
+    && docker-php-ext-install -j$(nproc) \
+    bcmath \
+    gmp \
+    mbstring \
+    mysql \
+    pdo \
+    pdo_mysql \
+    zip \
+    && pecl install \
+    spl_types \
+    xdebug \
+    && docker-php-ext-enable spl_types xdebug \
+    && curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer \
+    && composer create-project \
+    --no-ansi \
+    --no-dev \
+    --no-interaction \
+    --no-progress \
+    --prefer-dist \
+    laravel/laravel /var/www/html ~5.2.0 \
+    && rm -f /var/www/html/database/migrations/*.php \
+    /var/www/html/app/Users.php \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir /var/www/html/public/cachegrind \
+	&& chown -R www-data:www-data /var/www/html \
+	&& sed -i 's/DocumentRoot \/var\/www\/html/DocumentRoot \/var\/www\/html\/public/g' /etc/apache2/apache2.conf \
+	&& echo 'xdebug.profiler_output_dir = /var/www/html/public/cachegrind' >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
+	&& echo 'xdebug.profiler_enable = 1' >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
+    && echo 'xdebug.profiler_output_name = cachegrind.%u.%R' >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
+	&& echo 'Options +Indexes' > /var/www/html/public/cachegrind/.htaccess
 
-# Nginx startup script
-ADD config/nginx-start.sh /opt/bin/nginx-start.sh
-RUN chmod u=rwx /opt/bin/nginx-start.sh
-
-RUN mkdir -p /data
-VOLUME ["/data"]
-
-# PORTS
-EXPOSE 80
-EXPOSE 443
-
-WORKDIR /opt/bin
-ENTRYPOINT ["/opt/bin/nginx-start.sh"]
+ONBUILD RUN composer self-update \
+        && cd /var/www/html \
+        && composer update \
+        --no-ansi \
+        --no-dev \
+        --no-interaction \
+        --no-progress \
+        --prefer-dist
+WORKDIR /var/www/html
