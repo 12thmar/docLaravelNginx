@@ -1,4 +1,4 @@
-FROM ubuntu:wily
+FROM dockerfile/ubuntu
 MAINTAINER seid <seid.adem@gmail.com>
 
 # Install  packages
