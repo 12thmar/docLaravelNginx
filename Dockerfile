@@ -1,4 +1,4 @@
-FROM php
+FROM dockerfile/php
 RUN apt-get update && apt-get install -y unixODBC-dev && rm -rf /var/lib/apt/lists/*
 RUN set -x \
     && cd /usr/src/php/ext/odbc \
