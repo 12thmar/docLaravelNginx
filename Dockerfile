@@ -25,6 +25,6 @@ ENV ALLOW_OVERRIDE **False**
 ADD run.sh /run.sh
 RUN chmod 755 /*.sh
 
-EXPOSE 47017
-EXPOSE 48017
+EXPOSE 8080
+
 WORKDIR /app
